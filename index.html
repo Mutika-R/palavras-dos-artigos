@@ -3,25 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Nuvem de palavras interativa com os termos mais frequentes de dois artigos da Tempo Social e duas matérias da Folha.">
+<meta name="description" content="Esfera 3D interativa com as palavras mais frequentes de dois artigos da Tempo Social e duas matérias da Folha.">
 <title>Palavras dos Artigos</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Glass+Antiqua&family=Open+Sans:wght@300;400;600&display=swap">
 <style>
-  /* Layout: fundo dourado Art Nouveau, título em Glass Antiqua vermelho, nuvem em moldura creme com cantos ornamentados, tabela e nota abaixo.
+  /* Layout: fundo dourado Art Nouveau, título em Glass Antiqua vermelho, esfera 3D de palavras (Three.js) em moldura creme com cantos ornamentados.
      Sistema visual: modelo "Art Nouveau Style Presentation" (SlidesCarnival): dourado F8D078, vermelho, azul-marinho 303562, verde-azulado, oliva B5AE60; Glass Antiqua + Open Sans. */
   :root {
-    --bg: #f8d078;       /* dourado do modelo */
-    --paper: #fff6dc;    /* creme da moldura */
-    --ink: #1f1a12;
-    --muted: #5a4e2c;
-    --olive: #b5ae60;    /* oliva do modelo: molduras e filetes */
-    --olive-d: #7d7728;
-    --head: #c71f1b;     /* vermelho dos títulos */
-    --t1: #c71f1b;       /* 10 mais frequentes */
-    --t2: #303562;       /* 11ª a 40ª */
-    --t3: #1e6f6c;       /* demais */
+    --bg: #f8d078; --paper: #fff6dc; --ink: #1f1a12; --muted: #5a4e2c;
+    --olive: #b5ae60; --olive-d: #7d7728; --head: #c71f1b;
+    --t1: #c71f1b; --t2: #303562; --t3: #1e6f6c;
     --orn-stem: #7d7728; --orn-leaf: #1e8582; --orn-bud: #c71f1b; --orn-dot: #fff6dc;
-    --shadow: rgba(60, 45, 10, .22);
+    --on-head: #fff6dc; --shadow: rgba(60, 45, 10, .22);
     --font-head: "Glass Antiqua", Georgia, "Times New Roman", serif;
     --font-body: "Open Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
@@ -29,14 +22,14 @@
     :root:not([data-theme="light"]) {
       --bg: #101a2c; --paper: #17253d; --ink: #f3ebd3; --muted: #c4bb96; --olive: #8b8643; --olive-d: #b5ae60;
       --head: #f8d078; --t1: #f0877f; --t2: #f8d078; --t3: #7fd1cc;
-      --orn-stem: #b5ae60; --orn-leaf: #4ea8a5; --orn-bud: #f0877f; --orn-dot: #17253d; --shadow: rgba(0, 0, 0, .5);
+      --orn-stem: #b5ae60; --orn-leaf: #4ea8a5; --orn-bud: #f0877f; --orn-dot: #17253d; --on-head: #101a2c; --shadow: rgba(0, 0, 0, .5);
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #101a2c; --paper: #17253d; --ink: #f3ebd3; --muted: #c4bb96; --olive: #8b8643; --olive-d: #b5ae60;
     --head: #f8d078; --t1: #f0877f; --t2: #f8d078; --t3: #7fd1cc;
-    --orn-stem: #b5ae60; --orn-leaf: #4ea8a5; --orn-bud: #f0877f; --orn-dot: #17253d; --shadow: rgba(0, 0, 0, .5);
+    --orn-stem: #b5ae60; --orn-leaf: #4ea8a5; --orn-bud: #f0877f; --orn-dot: #17253d; --on-head: #101a2c; --shadow: rgba(0, 0, 0, .5);
     color-scheme: dark;
   }
   body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-weight: 400; }
@@ -59,28 +52,23 @@
   }
   select { max-width: 100%; }
   button { cursor: pointer; }
-  button[aria-pressed="true"] { background: var(--head); color: var(--paper); border-color: var(--head); }
-  :root[data-theme="dark"] button[aria-pressed="true"] { color: #101a2c; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button[aria-pressed="true"] { color: #101a2c; } }
-  select:focus-visible, button:focus-visible, .w:focus-visible { outline: 3px solid var(--t2); outline-offset: 2px; }
-  :root[data-theme="dark"] select:focus-visible, :root[data-theme="dark"] button:focus-visible, :root[data-theme="dark"] .w:focus-visible { outline-color: var(--head); }
+  button[aria-pressed="true"] { background: var(--head); color: var(--on-head); border-color: var(--head); }
+  select:focus-visible, button:focus-visible { outline: 3px solid var(--t2); outline-offset: 2px; }
   .stage {
     position: relative; min-width: 0; background: var(--paper);
     border: 2px solid var(--olive-d); border-radius: 8px;
-    outline: 1px solid var(--olive); outline-offset: -8px;
+    outline: 1px solid var(--olive); outline-offset: -8px; overflow: hidden;
   }
-  .corner { position: absolute; width: 46px; height: 46px; pointer-events: none; }
+  #cena { position: relative; }
+  #cena canvas { display: block; max-width: 100%; touch-action: pan-y; cursor: grab; }
+  #cena canvas:active { cursor: grabbing; }
+  .hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); margin: 0; font-size: 12px; color: var(--muted); pointer-events: none; width: max-content; max-width: calc(100% - 110px); text-align: center; }
+  .fallback { padding: 48px 24px; text-align: center; color: var(--muted); margin: 0; }
+  .corner { position: absolute; width: 46px; height: 46px; pointer-events: none; z-index: 2; }
   .corner.tl { top: 4px; left: 4px; }
   .corner.tr { top: 4px; right: 4px; transform: scaleX(-1); }
   .corner.bl { bottom: 4px; left: 4px; transform: scaleY(-1); }
   .corner.br { bottom: 4px; right: 4px; transform: scale(-1, -1); }
-  #nuvem { display: block; width: 100%; height: auto; }
-  .w { cursor: default; transition: opacity .15s; outline: none; }
-  .g { font-family: var(--font-head); font-weight: 400; }
-  .o { font-family: var(--font-body); font-weight: 600; }
-  .t1 { fill: var(--t1); } .t2 { fill: var(--t2); } .t3 { fill: var(--t3); }
-  #nuvem.dim .w { opacity: .25; }
-  #nuvem.dim .w.on { opacity: 1; }
   .tip {
     position: absolute; z-index: 5; pointer-events: none; min-width: 160px; max-width: 250px;
     background: var(--paper); color: var(--ink); border: 1.5px solid var(--olive-d); border-radius: 6px;
@@ -108,7 +96,7 @@
   .rule svg { width: 54px; height: 24px; flex: none; }
   .note { font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 82ch; margin: 0; }
   .note b { color: var(--ink); font-weight: 600; }
-  @media (prefers-reduced-motion: reduce) { .w { transition: none; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 
 <style>body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
@@ -147,17 +135,21 @@
   <div class="controls">
     <label for="texto">Texto</label>
     <select id="texto"></select>
+    <button id="btn-girar" type="button" aria-pressed="true">Pausar rotação</button>
     <button id="btn-tabela" type="button" aria-pressed="false">Ver como tabela</button>
   </div>
 
-  <section class="stage" id="stage" aria-label="Nuvem de palavras">
-    <svg id="nuvem" role="group" aria-label="Palavras ordenadas por frequência"></svg>
+  <section class="stage" id="stage" aria-label="Esfera de palavras em 3D">
+    <div id="cena" role="img" aria-label="Esfera giratória com as palavras mais frequentes; a lista completa está na tabela"></div>
+    <p class="hint" id="dica">Arraste para girar · passe o mouse ou toque numa palavra</p>
     <svg class="corner tl" aria-hidden="true" focusable="false"><use href="#vine"/></svg>
     <svg class="corner tr" aria-hidden="true" focusable="false"><use href="#vine"/></svg>
     <svg class="corner bl" aria-hidden="true" focusable="false"><use href="#vine"/></svg>
     <svg class="corner br" aria-hidden="true" focusable="false"><use href="#vine"/></svg>
     <div class="tip" id="tip" hidden></div>
   </section>
+
+  <ol class="sr-only" id="lista" aria-label="Palavras e ocorrências"></ol>
 
   <div class="tablewrap" id="tablewrap" hidden>
     <table id="tabela"></table>
@@ -170,6 +162,8 @@
   <p class="note" id="nota"></p>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 const DATA = {"words":{"acadêmica":[12,0,0,0],"agentes":[0,8,0,0],"alto":[0,11,0,0],"além":[2,8,0,0],"aparece":[1,8,0,0],"aplicativos":[0,0,0,2],"arquitetos":[0,12,0,0],"arquitetura":[3,9,0,0],"arte":[0,26,0,0],"artesanato":[0,10,0,0],"artistas":[0,20,0,2],"autor":[4,1,0,2],"autoras":[15,1,1,2],"autoridade":[9,0,0,0],"bilhões":[0,0,5,0],"brasil":[34,3,5,2],"brasileira":[20,4,1,1],"brasileiras":[11,0,0,0],"brasileiro":[14,0,4,3],"brasileiros":[7,0,2,0],"bruna":[0,0,4,0],"bruto":[0,0,2,0],"campo":[51,6,0,0],"capitais":[0,27,0,0],"capital":[1,45,0,0],"capitalista":[0,0,0,2],"carneiro":[9,0,0,0],"casa":[0,21,0,0],"categoria":[12,0,0,0],"categorias":[9,0,0,0],"centralidade":[20,1,0,0],"centro":[3,0,2,0],"cidade":[0,13,0,1],"cientista":[0,0,0,2],"científica":[9,0,0,0],"citados":[9,0,0,0],"citações":[10,0,0,0],"ciências":[14,0,0,0],"classe":[10,6,0,1],"classes":[2,10,0,0],"coisa":[1,11,0,0],"colonialidade":[22,0,0,0],"comercial":[0,0,0,2],"conhecimento":[11,1,0,0],"consagração":[0,4,0,2],"construção":[7,9,0,0],"contexto":[8,5,0,0],"conversa":[0,0,0,3],"corpus":[21,0,0,0],"crime":[0,0,7,0],"criminalidade":[0,0,5,0],"crítica":[32,1,0,0],"cultura":[4,33,0,0],"cultural":[2,48,0,0],"custo":[0,0,3,0],"custos":[0,0,5,0],"custou":[0,0,3,0],"dados":[6,3,3,0],"debate":[12,3,0,0],"decoração":[0,12,0,0],"despesas":[0,0,5,0],"dialogue":[0,0,3,0],"discurso":[7,9,0,0],"disponível":[0,0,0,2],"distintivas":[1,11,0,0],"diversidade":[1,7,0,3],"econômico":[0,16,2,0],"editorial":[0,0,0,3],"elite":[0,21,0,0],"elites":[0,26,0,0],"enquanto":[7,5,0,0],"entrevista":[0,1,0,2],"entrevistados":[0,11,0,0],"epistemologias":[10,0,0,0],"epistêmica":[19,0,0,0],"episódios":[0,0,0,2],"equivalente":[0,0,2,0],"escalas":[0,18,0,0],"espaço":[2,14,0,0],"estados":[3,1,4,0],"estelionato":[0,0,2,0],"estimativas":[0,0,3,0],"estratégias":[2,9,0,0],"estrela":[0,0,0,2],"estrutura":[11,14,0,0],"estudo":[3,0,3,0],"fala":[1,4,0,3],"feminismo":[14,0,0,0],"figura":[10,2,0,0],"forças":[0,0,3,0],"fração":[0,14,0,0],"frações":[0,30,0,0],"furto":[0,0,2,0],"fórum":[0,0,2,0],"gastos":[0,0,3,0],"geossimbólicas":[0,12,0,0],"global":[24,2,1,0],"gonzalez":[35,0,0,0],"gosto":[0,12,0,0],"grandes":[2,3,0,2],"gênero":[12,0,0,0],"hipótese":[14,0,0,0],"história":[1,13,0,6],"hoje":[2,4,3,0],"identidade":[10,8,0,0],"ilustríssima":[0,0,0,3],"ilusões":[0,0,0,3],"imobiliário":[0,9,0,0],"impacto":[0,0,6,0],"inclui":[0,0,2,0],"informantes":[0,17,0,0],"informações":[1,0,2,0],"intelectuais":[14,0,0,2],"inter-american":[0,0,3,0],"internacional":[2,9,0,0],"interno":[1,0,2,0],"justiça":[1,0,2,0],"legitimação":[10,5,0,0],"levantamento":[0,0,2,0],"literatura":[0,3,0,6],"livros":[0,3,0,2],"locais":[3,25,0,0],"local":[1,22,1,0],"lélia":[14,0,0,0],"lógica":[11,1,0,0],"marcada":[5,8,0,0],"materiais":[1,0,3,0],"medeiros":[0,0,0,3],"mercado":[1,14,1,5],"modernidade":[10,5,0,2],"mostra":[2,3,0,2],"mundo":[5,11,0,0],"mário":[0,0,0,2],"nacional":[5,12,0,0],"negra":[12,0,0,5],"negras":[24,0,0,0],"negro":[27,0,0,1],"negros":[11,0,0,3],"nordeste":[0,9,0,0],"norte":[15,1,0,0],"novo":[0,0,0,2],"padrões":[11,0,1,0],"patrimônio":[0,0,2,0],"país":[3,2,4,1],"pensamento":[12,1,0,0],"perda":[0,0,2,0],"perdas":[0,0,5,0],"peso":[1,1,2,0],"pesquisador":[0,0,0,3],"podcast":[0,0,0,3],"política":[10,1,0,0],"políticas":[12,1,1,1],"político":[7,1,0,2],"popular":[1,11,0,0],"posição":[2,18,0,0],"posições":[2,8,0,0],"presença":[10,3,0,0],"principal":[3,0,2,0],"privadas":[0,0,2,0],"produtiva":[0,0,2,0],"produto":[0,0,2,0],"produtores":[1,9,0,0],"produção":[37,9,0,0],"professor":[0,0,0,2],"provocadas":[0,0,2,0],"práticas":[4,8,2,0],"publicado":[0,0,2,0],"pública":[0,0,4,0],"públicas":[4,0,2,0],"públicos":[0,1,2,0],"questão":[6,4,2,0],"raciais":[11,0,0,0],"racial":[42,0,0,0],"racismo":[26,0,0,2],"raça":[48,0,0,0],"raízes":[0,8,0,0],"realizadas":[0,10,0,0],"reforça":[12,0,0,0],"regional":[0,45,0,0],"relações":[10,2,1,0],"renda":[0,1,2,0],"residências":[0,9,0,0],"roubo":[0,0,2,0],"rumo":[0,0,0,2],"saber":[26,0,2,0],"santos":[1,1,2,0],"segurança":[0,0,12,0],"seguros":[0,0,3,0],"sentidos":[1,3,0,2],"setor":[0,1,4,0],"simbólicas":[1,9,0,0],"sistema":[3,0,3,1],"sociais":[25,3,0,0],"social":[8,14,0,0],"sociólogo":[0,0,0,2],"soma":[0,0,2,0],"sérgio":[1,1,0,2],"temas":[10,1,0,1],"termos":[10,2,0,0],"texto":[0,0,3,0],"textual":[10,0,0,0],"tomadas":[0,11,0,0],"trabalho":[14,3,1,0],"tradicionais":[1,10,0,0],"trajetória":[1,9,0,0],"unicamp":[0,0,0,2],"valores":[2,3,3,0],"valorização":[0,14,0,2],"vítimas":[1,0,2,0],"washington":[0,0,2,0]},"totais":[4154,3708,470,304]};
 const SRC = [
@@ -180,15 +174,16 @@ const SRC = [
 ];
 const F_G = '400 {s}px "Glass Antiqua", Georgia, "Times New Roman", serif';
 const F_O = '600 {s}px "Open Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
-const T1_N = 10, T2_N = 40;   // limites dos grupos de destaque
-const CORNER = 50;            // lado reservado para o ornamento de cada canto
+const T1_N = 10, T2_N = 40;      // limites dos grupos de destaque
+const RADIUS = 12.5;               // raio da esfera (unidades da cena)
 const $ = id => document.getElementById(id);
 const sum = a => a.reduce((x, y) => x + y, 0);
 const fmt = n => n.toLocaleString("pt-BR");
-const ctx = document.createElement("canvas").getContext("2d");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let view = "all";   // "all" ou índice do texto
 let showTable = false;
+let spinning = !reduceMotion;
 
 function items(v) {
   const rows = Object.entries(DATA.words).map(([w, c]) => [w, v === "all" ? sum(c) : c[v], c]);
@@ -197,68 +192,15 @@ function items(v) {
 }
 const tier = i => (i < T1_N ? 1 : i < T2_N ? 2 : 3);
 
-function place(list, W, H) {
-  const max = list[0][1], min = list[list.length - 1][1];
-  const small = W < 520;
-  const fMin = small ? 13 : 14, fMax = small ? 44 : Math.min(96, W * 0.1);
-  const c = small ? 38 : CORNER;
-  const placed = [
-    { x0: 0, y0: 0, x1: c, y1: c }, { x0: W - c, y0: 0, x1: W, y1: c },
-    { x0: 0, y0: H - c, x1: c, y1: H }, { x0: W - c, y0: H - c, x1: W, y1: H }
-  ];
-  const out = [];
-  list.forEach(([w, n], i) => {
-    const tr = tier(i), g = tr < 3;
-    const t = max === min ? 1 : Math.sqrt((n - min) / (max - min));
-    let size = fMin + (fMax - fMin) * t, ok = false;
-    while (size >= fMin * 0.9 && !ok) {
-      ctx.font = (g ? F_G : F_O).replace("{s}", size);
-      const bw = ctx.measureText(w).width + 8, bh = size * 1.1 + 4;
-      for (let th = 0; th < 90; th += 0.1) {
-        const r = 1.3 * th * th ** 0.5 * (size / 16 + 0.6);
-        const cx = W / 2 + r * Math.cos(th) * 1.7, cy = H / 2 + r * Math.sin(th);
-        const x0 = cx - bw / 2, y0 = cy - bh / 2;
-        if (x0 < 12 || y0 < 12 || x0 + bw > W - 12 || y0 + bh > H - 12) { if (r > W) break; continue; }
-        if (placed.some(p => x0 < p.x1 && x0 + bw > p.x0 && y0 < p.y1 && y0 + bh > p.y0)) continue;
-        placed.push({ x0, y0, x1: x0 + bw, y1: y0 + bh });
-        out.push({ w, n, size, x: cx, y: cy, tr, g });
-        ok = true; break;
-      }
-      if (!ok) size *= 0.93;
-    }
-  });
-  return out;
-}
-
-function render() {
-  const list = items(view);
-  const svg = $("nuvem"), W = Math.max(300, Math.round($("stage").clientWidth));
-  let H = Math.round(W * (W < 520 ? 1.1 : 0.58)), res;
-  for (let i = 0; i < 5; i++) {
-    res = place(list, W, H);
-    if (res.length === list.length) break;
-    H = Math.round(H * 1.1);
-  }
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  const cnt = new Map(list.map(r => [r[0], r[1]]));
-  svg.innerHTML = res.map(o =>
-    `<text class="w ${o.g ? "g" : "o"} t${o.tr}" data-w="${o.w}" x="${o.x.toFixed(1)}" y="${o.y.toFixed(1)}" font-size="${o.size.toFixed(1)}" text-anchor="middle" dominant-baseline="central" tabindex="0" aria-label="${o.w}: ${cnt.get(o.w)} ocorrências">${o.w}</text>`
-  ).join("");
-  legend(list);
-  renderTable(list);
-  $("tablewrap").hidden = !showTable;
-}
-
+/* ---------- partes em HTML: legenda, tabela, lista para leitores de tela, nota ---------- */
 function legend(list) {
   const n = list.length, a = Math.min(T1_N, n), b = Math.min(T2_N, n);
-  const items = [
+  $("legenda").innerHTML = [
     `<span class="it"><span class="sw a" aria-hidden="true">Aa</span>${a} mais frequentes</span>`,
     b > a ? `<span class="it"><span class="sw b" aria-hidden="true">Aa</span>${a + 1}ª a ${b}ª</span>` : "",
     n > b ? `<span class="it"><span class="sw c" aria-hidden="true">Aa</span>demais (${b + 1}ª a ${n}ª)</span>` : ""
-  ];
-  $("legenda").innerHTML = items.join("") + '<span class="tail">Cor, fonte e tamanho acompanham o número de ocorrências.</span>';
+  ].join("") + '<span class="tail">Cor, fonte e tamanho acompanham o número de ocorrências.</span>';
 }
-
 function renderTable(list) {
   const rows = list.slice(0, 30);
   const head = view === "all"
@@ -268,59 +210,193 @@ function renderTable(list) {
     ? `<tr><td>${i + 1}</td><td>${r[0]}</td><td>${fmt(r[1])}</td>${r[2].map(n => `<td>${fmt(n)}</td>`).join("")}</tr>`
     : `<tr><td>${i + 1}</td><td>${r[0]}</td><td>${fmt(r[1])}</td><td>${fmt(sum(r[2]))}</td></tr>`).join("");
   $("tabela").innerHTML = `<caption>As 30 palavras mais frequentes</caption><thead>${head}</thead><tbody>${body}</tbody>`;
+  $("lista").innerHTML = list.map(r => `<li>${r[0]}: ${r[1]} ocorrências</li>`).join("");
 }
-
 function note() {
   const tot = DATA.totais;
-  $("nota").innerHTML = `<b>Como foi feito.</b> Contagem de palavras com ao menos 4 letras, depois de retirar palavras vazias (português e inglês), citações do tipo (Autor, ano), referências bibliográficas e palavras genéricas como "análise" e "autores". Palavras próximas ("negro", "negra") contam separadas. <b>Fontes:</b> ${SRC.map((s, i) => `${s.longo} (${fmt(tot[i])} palavras contadas)`).join("; ")}. Os dois artigos científicos somam cerca de 91% do total, por isso a vista "Todos os textos" reflete sobretudo eles; use o filtro para ver cada texto. <b>Design:</b> baseado no modelo Art Nouveau Style Presentation, da SlidesCarnival, com as fontes Glass Antiqua e Open Sans; os ornamentos são desenhos próprios.`;
+  $("nota").innerHTML = `<b>Como foi feito.</b> Contagem de palavras com ao menos 4 letras, depois de retirar palavras vazias (português e inglês), citações do tipo (Autor, ano), referências bibliográficas e palavras genéricas como "análise" e "autores". Palavras próximas ("negro", "negra") contam separadas. A posição na esfera não tem significado: as palavras são distribuídas por igual na superfície, e as que ficam atrás aparecem mais apagadas. <b>Fontes:</b> ${SRC.map((s, i) => `${s.longo} (${fmt(tot[i])} palavras contadas)`).join("; ")}. Os dois artigos científicos somam cerca de 91% do total, por isso a vista "Todos os textos" reflete sobretudo eles; use o filtro para ver cada texto. <b>Design:</b> baseado no modelo Art Nouveau Style Presentation, da SlidesCarnival, com as fontes Glass Antiqua e Open Sans; os ornamentos são desenhos próprios. Visualização 3D feita com Three.js.`;
 }
-
-// tooltip
-function showTip(el, ev) {
-  const w = el.dataset.w, c = DATA.words[w], tip = $("tip"), stage = $("stage");
-  const total = sum(c);
-  tip.innerHTML = `<strong>${w}</strong>` + (view === "all"
+function tipHTML(w) {
+  const c = DATA.words[w], total = sum(c);
+  return `<strong>${w}</strong>` + (view === "all"
     ? `<div class="row"><span>Total</span><b>${fmt(total)}</b></div>` + c.map((n, i) => n ? `<div class="row"><span>${SRC[i].curto}</span><b>${fmt(n)}</b></div>` : "").join("")
     : `<div class="row"><span>Neste texto</span><b>${fmt(c[view])}</b></div><div class="row"><span>Nos quatro textos</span><b>${fmt(total)}</b></div>`);
-  tip.hidden = false;
-  const sr = stage.getBoundingClientRect(), er = el.getBoundingClientRect();
-  let x = (ev && ev.clientX != null ? ev.clientX : er.left + er.width / 2) - sr.left + 14;
-  let y = (ev && ev.clientY != null ? ev.clientY : er.bottom) - sr.top + 14;
+}
+function placeTip(px, py) {
+  const tip = $("tip"), sr = $("stage").getBoundingClientRect();
+  let x = px - sr.left + 14, y = py - sr.top + 14;
   x = Math.min(x, sr.width - tip.offsetWidth - 8); y = Math.min(y, sr.height - tip.offsetHeight - 8);
   tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
-  $("nuvem").classList.add("dim"); el.classList.add("on");
 }
-function hideTip() {
-  $("tip").hidden = true; $("nuvem").classList.remove("dim");
-  document.querySelectorAll(".w.on").forEach(e => e.classList.remove("on"));
-}
-const svg = $("nuvem");
-svg.addEventListener("pointermove", e => { const t = e.target.closest(".w"); hideTip(); if (t) showTip(t, e); });
-svg.addEventListener("pointerleave", hideTip);
-svg.addEventListener("focusin", e => { const t = e.target.closest(".w"); if (t) showTip(t); });
-svg.addEventListener("focusout", hideTip);
 
-// controles
+/* ---------- cena 3D ---------- */
+function webglOK() {
+  if (typeof THREE === "undefined" || !THREE.OrbitControls) return false;
+  try { const c = document.createElement("canvas"); return !!(c.getContext("webgl") || c.getContext("experimental-webgl")); } catch (e) { return false; }
+}
+const GL = webglOK();
+let renderer, scene, camera, controls, group, sprites = [], hovered = null;
+const ray = GL ? new THREE.Raycaster() : null;
+const mouse = GL ? new THREE.Vector2() : null;
+
+function cssColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function wordTexture(word, isHead, color) {
+  const px = 96, c = document.createElement("canvas"), x = c.getContext("2d");
+  const font = (isHead ? F_G : F_O).replace("{s}", px);
+  x.font = font;
+  const w = Math.ceil(x.measureText(word).width) + 24, h = Math.ceil(px * 1.45);
+  c.width = w; c.height = h;
+  x.font = font; x.fillStyle = color; x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillText(word, w / 2, h / 2);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  return { t, aspect: w / h };
+}
+
+function clearSprites() {
+  for (const s of sprites) { group.remove(s); s.material.map.dispose(); s.material.dispose(); }
+  sprites = []; hovered = null;
+}
+
+function buildSprites(list) {
+  clearSprites();
+  const n = list.length, max = list[0][1], min = list[n - 1][1];
+  const cols = { 1: cssColor("--t1"), 2: cssColor("--t2"), 3: cssColor("--t3") };
+  // pontos espalhados por igual na esfera (espiral de Fibonacci), embaralhados para não concentrar as maiores num polo
+  const order = [...Array(n).keys()], rand = rng(7);
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  list.forEach(([w, cnt], i) => {
+    const tr = tier(i), { t, aspect } = wordTexture(w, tr < 3, cols[tr]);
+    const mat = new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false });
+    const s = new THREE.Sprite(mat);
+    const k = max === min ? 1 : Math.sqrt((cnt - min) / (max - min));
+    const hgt = 0.75 + 2.7 * k;
+    s.scale.set(hgt * aspect, hgt, 1);
+    const p = order[i], y = 1 - 2 * (p + 0.5) / n, r = Math.sqrt(1 - y * y), phi = p * golden;
+    const u = new THREE.Vector3(Math.cos(phi) * r, y, Math.sin(phi) * r);
+    s.position.copy(u).multiplyScalar(RADIUS);
+    s.userData = { w, u, sx: hgt * aspect, sy: hgt };
+    group.add(s); sprites.push(s);
+  });
+}
+
+function fit() {
+  const host = $("cena"), W = Math.max(280, host.clientWidth);
+  const H = Math.round(W * (W < 520 ? 1.05 : 0.6));
+  renderer.setSize(W, H);
+  camera.aspect = W / H; camera.updateProjectionMatrix();
+  const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  camera.position.setLength((RADIUS + 2.6) / Math.sin(Math.min(vf, hf) / 2));
+}
+
+function setHover(obj, ev) {
+  if (obj === hovered) { if (obj && ev) placeTip(ev.clientX, ev.clientY); return; }
+  if (hovered) hovered.scale.set(hovered.userData.sx, hovered.userData.sy, 1);
+  hovered = obj;
+  controls.autoRotate = spinning && !obj;
+  const tip = $("tip");
+  if (!obj) { tip.hidden = true; return; }
+  obj.scale.set(obj.userData.sx * 1.15, obj.userData.sy * 1.15, 1);
+  tip.innerHTML = tipHTML(obj.userData.w); tip.hidden = false;
+  if (ev) placeTip(ev.clientX, ev.clientY);
+}
+
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+  mouse.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(sprites).find(h => h.object.material.opacity > 0.55);
+  setHover(hit ? hit.object : null, ev);
+}
+
+const camDir = GL ? new THREE.Vector3() : null;
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  camDir.copy(camera.position).normalize();
+  for (const s of sprites) {
+    const f = (s.userData.u.dot(camDir) + 1) / 2;               // 0 = atrás, 1 = na frente
+    const base = 0.05 + 0.95 * Math.pow(f, 2.4);
+    s.material.opacity = hovered ? (s === hovered ? 1 : base * 0.3) : base;
+  }
+  renderer.render(scene, camera);
+}
+
+function initScene() {
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setClearColor(0x000000, 0);
+  $("cena").appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+  camera.position.set(0, 2, 30);
+  group = new THREE.Group(); scene.add(group);
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enablePan = false; controls.enableZoom = false;
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.rotateSpeed = 0.6;
+  controls.autoRotate = spinning; controls.autoRotateSpeed = 0.8;
+  const el = renderer.domElement;
+  el.addEventListener("pointermove", pick);
+  el.addEventListener("click", pick);
+  el.addEventListener("pointerleave", () => setHover(null));
+  fit();
+  let lastW = $("cena").clientWidth, raf;
+  new ResizeObserver(() => {
+    const w = $("cena").clientWidth;
+    if (Math.abs(w - lastW) < 2) return;
+    lastW = w; cancelAnimationFrame(raf); raf = requestAnimationFrame(fit);
+  }).observe($("cena"));
+  animate();
+}
+
+/* ---------- montagem ---------- */
+function render() {
+  const list = items(view);
+  legend(list); renderTable(list);
+  if (GL) buildSprites(list);
+  $("tablewrap").hidden = !showTable;
+}
+
 $("texto").innerHTML = '<option value="all">Todos os textos</option>' + SRC.map((s, i) => `<option value="${i}">${s.longo}</option>`).join("");
-$("texto").addEventListener("change", e => { view = e.target.value === "all" ? "all" : +e.target.value; hideTip(); render(); });
+$("texto").addEventListener("change", e => { view = e.target.value === "all" ? "all" : +e.target.value; if (GL) setHover(null); render(); });
 $("btn-tabela").addEventListener("click", e => {
   showTable = !showTable;
   e.currentTarget.setAttribute("aria-pressed", showTable);
   e.currentTarget.textContent = showTable ? "Ocultar tabela" : "Ver como tabela";
   $("tablewrap").hidden = !showTable;
 });
+const btnGirar = $("btn-girar");
+function syncSpinButton() {
+  btnGirar.setAttribute("aria-pressed", spinning);
+  btnGirar.textContent = spinning ? "Pausar rotação" : "Girar";
+}
+btnGirar.addEventListener("click", () => { spinning = !spinning; if (GL) controls.autoRotate = spinning && !hovered; syncSpinButton(); });
+syncSpinButton();
 
 note();
-render();
-if (document.fonts && document.fonts.load) {
-  Promise.all([document.fonts.load('400 20px "Glass Antiqua"'), document.fonts.load('600 20px "Open Sans"')]).then(render).catch(() => {});
+if (GL) {
+  initScene();
+  // recolore as palavras quando o tema muda (sistema ou escolha explícita)
+  const recolor = () => buildSprites(items(view));
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", recolor);
+  new MutationObserver(recolor).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+} else {
+  $("cena").innerHTML = '<p class="fallback">Seu navegador não exibiu a esfera 3D (WebGL indisponível). As palavras estão na tabela abaixo.</p>';
+  $("dica").hidden = true; btnGirar.hidden = true;
+  showTable = true; $("btn-tabela").setAttribute("aria-pressed", "true"); $("btn-tabela").textContent = "Ocultar tabela";
 }
-let raf, lastW = $("stage").clientWidth;
-new ResizeObserver(() => {
-  const w = $("stage").clientWidth;
-  if (Math.abs(w - lastW) < 2) return;
-  lastW = w; cancelAnimationFrame(raf); raf = requestAnimationFrame(render);
-}).observe($("stage"));
+render();
+// desenha de novo quando as fontes chegam, para as texturas usarem Glass Antiqua e Open Sans
+if (GL && document.fonts && document.fonts.load) {
+  Promise.all([document.fonts.load('400 20px "Glass Antiqua"'), document.fonts.load('600 20px "Open Sans"')])
+    .then(() => buildSprites(items(view))).catch(() => {});
+}
 </script>
 </body>
 </html>
