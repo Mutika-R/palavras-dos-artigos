@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Nuvem de palavras interativa com os termos mais frequentes de dois artigos da Tempo Social e duas matérias da Folha.">
+<title>Palavras dos Artigos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600&display=swap">
+<style>
+  /* Layout: cabeçalho curto, uma linha de filtros, a nuvem em largura total, legenda e nota de fonte abaixo. */
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --ink: #14202e;
+    --muted: #556577;
+    --line: #dbe3ec;
+    --accent: #1f5086;
+    --s0: #3f76ac; --s1: #2e6399; --s2: #1f5086; --s3: #143f70; --s4: #0a2e58;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e141b; --surface: #151d27; --ink: #e6ecf2; --muted: #98a6b5; --line: #26323f; --accent: #8db5de;
+      --s0: #4f7ba6; --s1: #6c9ac6; --s2: #8db5de; --s3: #b3d1ef; --s4: #dcecfb;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e141b; --surface: #151d27; --ink: #e6ecf2; --muted: #98a6b5; --line: #26323f; --accent: #8db5de;
+    --s0: #4f7ba6; --s1: #6c9ac6; --s2: #8db5de; --s3: #b3d1ef; --s4: #dcecfb;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); }
+  .wrap {
+    max-width: 1120px; margin: 0 auto;
+    padding-block: 28px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  h1 { font: 600 clamp(26px, 4vw, 36px)/1.1 var(--font-head); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+  .sub { margin: 8px 0 0; color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 62ch; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+  .controls label { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  select, button {
+    font: 400 14px var(--font-body); color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; min-height: 38px;
+  }
+  select { max-width: 100%; }
+  button { cursor: pointer; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  select:focus-visible, button:focus-visible, .w:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .stage { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+  #nuvem { display: block; width: 100%; height: auto; }
+  .w { font-family: var(--font-body); font-weight: 600; cursor: default; transition: opacity .15s; outline: none; }
+  .c0 { fill: var(--s0); } .c1 { fill: var(--s1); } .c2 { fill: var(--s2); } .c3 { fill: var(--s3); } .c4 { fill: var(--s4); }
+  #nuvem.dim .w { opacity: .28; }
+  #nuvem.dim .w.on { opacity: 1; }
+  .tip {
+    position: absolute; z-index: 5; pointer-events: none; min-width: 150px; max-width: 240px;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.14);
+  }
+  .tip strong { display: block; font-size: 15px; margin-bottom: 4px; }
+  .tip .row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); }
+  .tip .row b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 12px; color: var(--muted); }
+  .legend .scale { display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend .it { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 8px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:nth-child(1), td:nth-child(1), th:nth-child(2), td:nth-child(2) { text-align: left; }
+  th { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .note { font-size: 13px; line-height: 1.55; color: var(--muted); max-width: 80ch; margin: 0; }
+  .note b { color: var(--ink); font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) { .w { transition: none; } }
+</style>
+
+<style>body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Palavras dos Artigos</h1>
+    <p class="sub">As palavras que mais se repetem em quatro textos: dois artigos da revista Tempo Social (2026) e duas matérias da Folha de S.Paulo (novembro de 2026).</p>
+  </header>
+
+  <div class="controls">
+    <label for="texto">Texto</label>
+    <select id="texto"></select>
+    <button id="btn-tabela" type="button" aria-pressed="false">Ver como tabela</button>
+  </div>
+
+  <section class="stage" id="stage" aria-label="Nuvem de palavras">
+    <svg id="nuvem" role="group" aria-label="Palavras ordenadas por frequência"></svg>
+    <div class="tip" id="tip" hidden></div>
+  </section>
+
+  <div class="tablewrap" id="tablewrap" hidden>
+    <table id="tabela"></table>
+  </div>
+
+  <div class="legend" id="legenda" aria-label="Legenda: cor e tamanho indicam a frequência"></div>
+
+  <p class="note" id="nota"></p>
+</main>
+
+<script>
+const DATA = {"words":{"acadêmica":[12,0,0,0],"agentes":[0,8,0,0],"alto":[0,11,0,0],"além":[2,8,0,0],"aparece":[1,8,0,0],"aplicativos":[0,0,0,2],"arquitetos":[0,12,0,0],"arquitetura":[3,9,0,0],"arte":[0,26,0,0],"artesanato":[0,10,0,0],"artistas":[0,20,0,2],"autor":[4,1,0,2],"autoras":[15,1,1,2],"autoridade":[9,0,0,0],"bilhões":[0,0,5,0],"brasil":[34,3,5,2],"brasileira":[20,4,1,1],"brasileiras":[11,0,0,0],"brasileiro":[14,0,4,3],"brasileiros":[7,0,2,0],"bruna":[0,0,4,0],"bruto":[0,0,2,0],"campo":[51,6,0,0],"capitais":[0,27,0,0],"capital":[1,45,0,0],"capitalista":[0,0,0,2],"carneiro":[9,0,0,0],"casa":[0,21,0,0],"categoria":[12,0,0,0],"categorias":[9,0,0,0],"centralidade":[20,1,0,0],"centro":[3,0,2,0],"cidade":[0,13,0,1],"cientista":[0,0,0,2],"científica":[9,0,0,0],"citados":[9,0,0,0],"citações":[10,0,0,0],"ciências":[14,0,0,0],"classe":[10,6,0,1],"classes":[2,10,0,0],"coisa":[1,11,0,0],"colonialidade":[22,0,0,0],"comercial":[0,0,0,2],"conhecimento":[11,1,0,0],"consagração":[0,4,0,2],"construção":[7,9,0,0],"contexto":[8,5,0,0],"conversa":[0,0,0,3],"corpus":[21,0,0,0],"crime":[0,0,7,0],"criminalidade":[0,0,5,0],"crítica":[32,1,0,0],"cultura":[4,33,0,0],"cultural":[2,48,0,0],"custo":[0,0,3,0],"custos":[0,0,5,0],"custou":[0,0,3,0],"dados":[6,3,3,0],"debate":[12,3,0,0],"decoração":[0,12,0,0],"despesas":[0,0,5,0],"dialogue":[0,0,3,0],"discurso":[7,9,0,0],"disponível":[0,0,0,2],"distintivas":[1,11,0,0],"diversidade":[1,7,0,3],"econômico":[0,16,2,0],"editorial":[0,0,0,3],"elite":[0,21,0,0],"elites":[0,26,0,0],"enquanto":[7,5,0,0],"entrevista":[0,1,0,2],"entrevistados":[0,11,0,0],"epistemologias":[10,0,0,0],"epistêmica":[19,0,0,0],"episódios":[0,0,0,2],"equivalente":[0,0,2,0],"escalas":[0,18,0,0],"espaço":[2,14,0,0],"estados":[3,1,4,0],"estelionato":[0,0,2,0],"estimativas":[0,0,3,0],"estratégias":[2,9,0,0],"estrela":[0,0,0,2],"estrutura":[11,14,0,0],"estudo":[3,0,3,0],"fala":[1,4,0,3],"feminismo":[14,0,0,0],"figura":[10,2,0,0],"forças":[0,0,3,0],"fração":[0,14,0,0],"frações":[0,30,0,0],"furto":[0,0,2,0],"fórum":[0,0,2,0],"gastos":[0,0,3,0],"geossimbólicas":[0,12,0,0],"global":[24,2,1,0],"gonzalez":[35,0,0,0],"gosto":[0,12,0,0],"grandes":[2,3,0,2],"gênero":[12,0,0,0],"hipótese":[14,0,0,0],"história":[1,13,0,6],"hoje":[2,4,3,0],"identidade":[10,8,0,0],"ilustríssima":[0,0,0,3],"ilusões":[0,0,0,3],"imobiliário":[0,9,0,0],"impacto":[0,0,6,0],"inclui":[0,0,2,0],"informantes":[0,17,0,0],"informações":[1,0,2,0],"intelectuais":[14,0,0,2],"inter-american":[0,0,3,0],"internacional":[2,9,0,0],"interno":[1,0,2,0],"justiça":[1,0,2,0],"legitimação":[10,5,0,0],"levantamento":[0,0,2,0],"literatura":[0,3,0,6],"livros":[0,3,0,2],"locais":[3,25,0,0],"local":[1,22,1,0],"lélia":[14,0,0,0],"lógica":[11,1,0,0],"marcada":[5,8,0,0],"materiais":[1,0,3,0],"medeiros":[0,0,0,3],"mercado":[1,14,1,5],"modernidade":[10,5,0,2],"mostra":[2,3,0,2],"mundo":[5,11,0,0],"mário":[0,0,0,2],"nacional":[5,12,0,0],"negra":[12,0,0,5],"negras":[24,0,0,0],"negro":[27,0,0,1],"negros":[11,0,0,3],"nordeste":[0,9,0,0],"norte":[15,1,0,0],"novo":[0,0,0,2],"padrões":[11,0,1,0],"patrimônio":[0,0,2,0],"país":[3,2,4,1],"pensamento":[12,1,0,0],"perda":[0,0,2,0],"perdas":[0,0,5,0],"peso":[1,1,2,0],"pesquisador":[0,0,0,3],"podcast":[0,0,0,3],"política":[10,1,0,0],"políticas":[12,1,1,1],"político":[7,1,0,2],"popular":[1,11,0,0],"posição":[2,18,0,0],"posições":[2,8,0,0],"presença":[10,3,0,0],"principal":[3,0,2,0],"privadas":[0,0,2,0],"produtiva":[0,0,2,0],"produto":[0,0,2,0],"produtores":[1,9,0,0],"produção":[37,9,0,0],"professor":[0,0,0,2],"provocadas":[0,0,2,0],"práticas":[4,8,2,0],"publicado":[0,0,2,0],"pública":[0,0,4,0],"públicas":[4,0,2,0],"públicos":[0,1,2,0],"questão":[6,4,2,0],"raciais":[11,0,0,0],"racial":[42,0,0,0],"racismo":[26,0,0,2],"raça":[48,0,0,0],"raízes":[0,8,0,0],"realizadas":[0,10,0,0],"reforça":[12,0,0,0],"regional":[0,45,0,0],"relações":[10,2,1,0],"renda":[0,1,2,0],"residências":[0,9,0,0],"roubo":[0,0,2,0],"rumo":[0,0,0,2],"saber":[26,0,2,0],"santos":[1,1,2,0],"segurança":[0,0,12,0],"seguros":[0,0,3,0],"sentidos":[1,3,0,2],"setor":[0,1,4,0],"simbólicas":[1,9,0,0],"sistema":[3,0,3,1],"sociais":[25,3,0,0],"social":[8,14,0,0],"sociólogo":[0,0,0,2],"soma":[0,0,2,0],"sérgio":[1,1,0,2],"temas":[10,1,0,1],"termos":[10,2,0,0],"texto":[0,0,3,0],"textual":[10,0,0,0],"tomadas":[0,11,0,0],"trabalho":[14,3,1,0],"tradicionais":[1,10,0,0],"trajetória":[1,9,0,0],"unicamp":[0,0,0,2],"valores":[2,3,3,0],"valorização":[0,14,0,2],"vítimas":[1,0,2,0],"washington":[0,0,2,0]},"totais":[4154,3708,470,304]};
+const SRC = [
+  { curto: "Silva Junior", longo: "Silva Junior (2026), Tempo Social: raça e epistemologias" },
+  { curto: "Novais e Michetti", longo: "Novais e Michetti (2026), Tempo Social: elites e o regional em João Pessoa" },
+  { curto: "Folha: crime", longo: "Folha de S.Paulo: custo do crime no Brasil" },
+  { curto: "Folha: diversidade", longo: "Folha de S.Paulo: diversidade no mercado editorial (Mário Medeiros)" }
+];
+const FONT = '600 {s}px Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+const $ = id => document.getElementById(id);
+const sum = a => a.reduce((x, y) => x + y, 0);
+const fmt = n => n.toLocaleString("pt-BR");
+const ctx = document.createElement("canvas").getContext("2d");
+
+let view = "all";   // "all" ou índice do texto
+let showTable = false;
+
+function items(v) {
+  const rows = Object.entries(DATA.words).map(([w, c]) => [w, v === "all" ? sum(c) : c[v], c]);
+  const top = v === "all" ? 80 : 60;
+  return rows.filter(r => r[1] >= (v === "all" ? 1 : 2)).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt")).slice(0, top);
+}
+
+function buckets(list) {
+  // cinco grupos de mesmo tamanho por posição (a distribuição é muito assimétrica)
+  const n = list.length;
+  return list.map((_, i) => Math.min(4, 4 - Math.floor((i / n) * 5)));
+}
+
+function place(list, W, H) {
+  const max = list[0][1], min = list[list.length - 1][1];
+  const small = W < 520;
+  const fMin = small ? 12 : 13, fMax = small ? 42 : Math.min(92, W * 0.095);
+  const placed = [], out = [];
+  for (const [w, n] of list) {
+    const t = max === min ? 1 : Math.sqrt((n - min) / (max - min));
+    let size = fMin + (fMax - fMin) * t, ok = false;
+    while (size >= fMin * 0.9 && !ok) {
+      ctx.font = FONT.replace("{s}", size);
+      const bw = ctx.measureText(w).width + 8, bh = size * 1.05 + 4;
+      for (let th = 0; th < 90; th += 0.1) {
+        const r = 1.3 * th * th ** 0.5 * (size / 16 + 0.6);
+        const cx = W / 2 + r * Math.cos(th) * 1.7, cy = H / 2 + r * Math.sin(th);
+        const x0 = cx - bw / 2, y0 = cy - bh / 2;
+        if (x0 < 4 || y0 < 4 || x0 + bw > W - 4 || y0 + bh > H - 4) { if (r > W) break; continue; }
+        if (placed.some(p => x0 < p.x1 && x0 + bw > p.x0 && y0 < p.y1 && y0 + bh > p.y0)) continue;
+        placed.push({ x0, y0, x1: x0 + bw, y1: y0 + bh });
+        out.push({ w, n, size, x: cx, y: cy });
+        ok = true; break;
+      }
+      if (!ok) size *= 0.93;
+    }
+  }
+  return out;
+}
+
+function render() {
+  const list = items(view), cls = buckets(list);
+  const svg = $("nuvem"), W = Math.max(300, Math.round($("stage").clientWidth));
+  let H = Math.round(W * (W < 520 ? 1.05 : 0.56)), res;
+  for (let i = 0; i < 5; i++) {
+    res = place(list, W, H);
+    if (res.length === list.length) break;
+    H = Math.round(H * 1.1);
+  }
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const byWord = new Map(list.map((r, i) => [r[0], { r, c: cls[i] }]));
+  svg.innerHTML = res.map(o => {
+    const { r, c } = byWord.get(o.w);
+    return `<text class="w c${c}" data-w="${o.w}" x="${o.x.toFixed(1)}" y="${o.y.toFixed(1)}" font-size="${o.size.toFixed(1)}" text-anchor="middle" dominant-baseline="central" tabindex="0" aria-label="${o.w}: ${r[1]} ocorrências">${o.w}</text>`;
+  }).join("");
+  legend(list, cls, res.length);
+  renderTable(list);
+  $("tablewrap").hidden = !showTable;
+}
+
+function legend(list, cls, shown) {
+  const rng = [4, 3, 2, 1, 0].map(k => {
+    const ns = list.filter((_, i) => cls[i] === k).map(r => r[1]);
+    return ns.length ? { k, lo: Math.min(...ns), hi: Math.max(...ns) } : null;
+  }).filter(Boolean).reverse();
+  $("legenda").innerHTML = '<span>Menos frequente</span><span class="scale">' +
+    rng.map(r => `<span class="it"><i style="background:var(--s${r.k})"></i>${r.lo === r.hi ? r.lo : r.lo + "–" + r.hi}</span>`).join("") +
+    '</span><span>Mais frequente</span><span>· ocorrências por palavra · tamanho e cor mostram a frequência</span>';
+  $("legenda").dataset.shown = shown;
+}
+
+function renderTable(list) {
+  const rows = list.slice(0, 30);
+  const head = view === "all"
+    ? `<tr><th>#</th><th>Palavra</th><th>Total</th>${SRC.map(s => `<th>${s.curto}</th>`).join("")}</tr>`
+    : `<tr><th>#</th><th>Palavra</th><th>Neste texto</th><th>Nos quatro textos</th></tr>`;
+  const body = rows.map((r, i) => view === "all"
+    ? `<tr><td>${i + 1}</td><td>${r[0]}</td><td>${fmt(r[1])}</td>${r[2].map(n => `<td>${fmt(n)}</td>`).join("")}</tr>`
+    : `<tr><td>${i + 1}</td><td>${r[0]}</td><td>${fmt(r[1])}</td><td>${fmt(sum(r[2]))}</td></tr>`).join("");
+  $("tabela").innerHTML = `<caption class="note" style="text-align:left;padding:10px 14px;caption-side:top">As 30 palavras mais frequentes</caption><thead>${head}</thead><tbody>${body}</tbody>`;
+}
+
+function note() {
+  const tot = DATA.totais;
+  $("nota").innerHTML = `<b>Como foi feito.</b> Contagem de palavras com ao menos 4 letras, depois de retirar palavras vazias (português e inglês), citações do tipo (Autor, ano), referências bibliográficas e palavras genéricas como "análise" e "autores". Palavras próximas ("negro", "negra") contam separadas. <b>Fontes:</b> ${SRC.map((s, i) => `${s.longo} (${fmt(tot[i])} palavras contadas)`).join("; ")}. Os dois artigos científicos somam cerca de 91% do total, por isso a vista "Todos os textos" reflete sobretudo eles; use o filtro para ver cada texto.`;
+}
+
+// tooltip
+function showTip(el, ev) {
+  const w = el.dataset.w, c = DATA.words[w], tip = $("tip"), stage = $("stage");
+  const total = sum(c);
+  tip.innerHTML = `<strong>${w}</strong>` + (view === "all"
+    ? `<div class="row"><span>Total</span><b>${fmt(total)}</b></div>` + c.map((n, i) => n ? `<div class="row"><span>${SRC[i].curto}</span><b>${fmt(n)}</b></div>` : "").join("")
+    : `<div class="row"><span>Neste texto</span><b>${fmt(c[view])}</b></div><div class="row"><span>Nos quatro textos</span><b>${fmt(total)}</b></div>`);
+  tip.hidden = false;
+  const sr = stage.getBoundingClientRect(), er = el.getBoundingClientRect();
+  let x = (ev && ev.clientX != null ? ev.clientX : er.left + er.width / 2) - sr.left + 14;
+  let y = (ev && ev.clientY != null ? ev.clientY : er.bottom) - sr.top + 14;
+  x = Math.min(x, sr.width - tip.offsetWidth - 8); y = Math.min(y, sr.height - tip.offsetHeight - 8);
+  tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  $("nuvem").classList.add("dim"); el.classList.add("on");
+}
+function hideTip() {
+  $("tip").hidden = true; $("nuvem").classList.remove("dim");
+  document.querySelectorAll(".w.on").forEach(e => e.classList.remove("on"));
+}
+const svg = $("nuvem");
+svg.addEventListener("pointermove", e => { const t = e.target.closest(".w"); hideTip(); if (t) showTip(t, e); });
+svg.addEventListener("pointerleave", hideTip);
+svg.addEventListener("focusin", e => { const t = e.target.closest(".w"); if (t) showTip(t); });
+svg.addEventListener("focusout", hideTip);
+
+// controles
+$("texto").innerHTML = '<option value="all">Todos os textos</option>' + SRC.map((s, i) => `<option value="${i}">${s.longo}</option>`).join("");
+$("texto").addEventListener("change", e => { view = e.target.value === "all" ? "all" : +e.target.value; hideTip(); render(); });
+$("btn-tabela").addEventListener("click", e => {
+  showTable = !showTable;
+  e.currentTarget.setAttribute("aria-pressed", showTable);
+  e.currentTarget.textContent = showTable ? "Ocultar tabela" : "Ver como tabela";
+  $("tablewrap").hidden = !showTable;
+});
+
+note();
+render();
+if (document.fonts && document.fonts.load) document.fonts.load('600 20px Inter').then(render).catch(() => {});
+let raf, lastW = $("stage").clientWidth;
+new ResizeObserver(() => {
+  const w = $("stage").clientWidth;
+  if (Math.abs(w - lastW) < 2) return;
+  lastW = w; cancelAnimationFrame(raf); raf = requestAnimationFrame(render);
+}).observe($("stage"));
+</script>
+</body>
+</html>
